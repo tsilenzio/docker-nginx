@@ -2,29 +2,34 @@ FROM tsilenzio/base
 
 MAINTAINER Taylor Silenzio <tsilenzio@gmail.com>
 
-# Install nginx
-RUN apt-get update -y && \
-    apt-get install -y python-software-properties && \
-    add-apt-repository ppa:nginx/stable && \
-    apt-get update && apt-get install -y nginx
-
-# Handle post installation
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Add the nessary missing line to fastcgi_pararms
-RUN echo "fastcgi_param  SCRIPT_FILENAME \$document_root\$fastcgi_script_name;" >> /etc/nginx/fastcgi_params && \
-	# Enable log redirection
-    ln -sf /dev/stdout /var/log/nginx/access.log && \
-    ln -sf /dev/stderr /var/log/nginx/error.log && \
-	# Remove the older nginx configuration
-    rm -f /etc/nginx/nginx.conf
-
-# Install the nginx configuation
-ADD conf/nginx.conf /etc/nginx/
+# Add the config files
+ADD conf.d/* /tmp/
 
 # Enable the service
 ADD service/ /etc/service/
 
-EXPOSE 80
+# Update package manager repositories
+RUN add-apt-repository ppa:nginx/stable \
+    && apt-get update \
+    # Install Nginx
+    && apt-get install -y nginx \
+    # Enable log redirection
+    && ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log \
+    # Install configuration files
+    && rm -f /etc/nginx/nginx.conf \
+    && mv /tmp/nginx.conf /etc/nginx/nginx.conf \
+    && chown root:root /etc/nginx/nginx.conf \
+    && rm -f /etc/nginx/fastcgi.conf \
+    && mv /tmp/fastcgi.conf /etc/nginx/fastcgi.conf \
+    && chown root:root /etc/nginx/fastcgi.conf \
+    && rm -f /etc/nginx/fastcgi_params \
+    && mv /tmp/fastcgi_params /etc/nginx/fastcgi_params \
+    && chown root:root /etc/nginx/fastcgi_params \
+    # Handle post installation clean-up
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
 CMD ["/sbin/my_init"]
